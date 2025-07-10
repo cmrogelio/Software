@@ -321,8 +321,8 @@ def Pose3D(keypoints,frame_height,Cam_origin):
             keypoints[1] = keypoints[1]*scale                   # Transforms the coordinates of the keypoints from camera B to be adjusted to the height of the bounding box from camera A
 
     keypoints3D = []                                            # Creates an array to store the keypoints in a 3D format
-    hs = (2.412/300)                                            # Height scale to be used to transform the coordinates of the keypoints from pixels to meters
-    vs = (-1.513/300)                                           # Width scale to be used to transform the coordinates of the keypoints from pixels to meters
+    hs = 1/188  #(2.412/300)                                            # Height scale to be used to transform the coordinates of the keypoints from pixels to meters
+    vs = -1/188  #(-1.513/300)                                           # Width scale to be used to transform the coordinates of the keypoints from pixels to meters
     for i in range(len(keypoints[0])):                          # Checks each of the keypoints
         # Points format (x,y,z,z2)
         # x = x coordinate of the keypoint from camera A
