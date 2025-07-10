@@ -60,12 +60,13 @@ class Ui_MainWindow(QMainWindow):
         self.STSFlag = 0                                        # Sit-to-stand flag, 0 -> No STS test, 1 -> STS test
         self.modelSTSFlag = 0                                   # Model flag, 0 -> No model applied, 1 -> Model application during live video
         self.commFlag = 0                                       # Communication flag, 0 -> No communication, 1 -> Search to stablish a serial communication
+        self.CaptureClick = False
         # Image processing variables
         blankPoints = np.zeros((17,2))                          # Blank array with the same shape of the keypoints
         self.blankPoints = blankPoints.astype('float32')        # Change the blank image to float32 format
         self.keypoints = [self.blankPoints,self.blankPoints]    # Array to store the keypoints of the two cameras for the latest frame
         self.frame_height = [[],[]]                             # Array to store the height of the bounding box for each of the cameras frames
-        self.Cam_origin = [[],[]]                               # Array to store the origin of the bounding box for each of the cameras frames
+        self.Cam_origin = [[0,300],[0,300]]                               # Array to store the origin of the bounding box for each of the cameras frames
         # YOLO parameters
         modelSize = 1                                           # (1-5) While using live video the value must always be 1
         YOLO_models = {1:'yolov8n-pose.pt',2:'yolov8s-pose.pt',3:'yolov8m-pose.pt',4:'yolov8l-pose.pt',5:'yolov8x-pose.pt'} # YOLO models
@@ -145,6 +146,39 @@ class Ui_MainWindow(QMainWindow):
         font.setPointSize(30)
         self.PictureBoxD.setFont(font)
         self.PictureBoxD.setVisible(False)
+
+        ## Picture box for Reference point
+        self.RefLineHA = QLabel(self.PictureBoxA)
+        self.RefLineHA.setGeometry(QtCore.QRect(0, self.PictureBoxA.height()-20, self.PictureBoxA.width(), 10))
+        self.RefLineHA.setAutoFillBackground(True)
+        self.RefLineHA.setText("")
+        self.RefLineHA.setObjectName("RefLine")
+        self.RefLineHA.setStyleSheet("background-color : blue")
+        self.RefLineHA.setVisible(False)
+
+        self.RefLineVA = QLabel(self.PictureBoxA)
+        self.RefLineVA.setGeometry(QtCore.QRect(0, 0, 10, self.PictureBoxA.height()))
+        self.RefLineVA.setAutoFillBackground(True)
+        self.RefLineVA.setText("")
+        self.RefLineVA.setObjectName("RefLine")
+        self.RefLineVA.setStyleSheet("background-color : blue")
+        self.RefLineVA.setVisible(False)
+
+        self.RefLineHB = QLabel(self.PictureBoxB)
+        self.RefLineHB.setGeometry(QtCore.QRect(0, self.PictureBoxB.height()-20, self.PictureBoxB.width(), 10))
+        self.RefLineHB.setAutoFillBackground(True)
+        self.RefLineHB.setText("")
+        self.RefLineHB.setObjectName("RefLine")
+        self.RefLineHB.setStyleSheet("background-color : blue")
+        self.RefLineHB.setVisible(False)
+
+        self.RefLineVB = QLabel(self.PictureBoxB)
+        self.RefLineVB.setGeometry(QtCore.QRect(0, 0, 10, self.PictureBoxB.height()))
+        self.RefLineVB.setAutoFillBackground(True)
+        self.RefLineVB.setText("")
+        self.RefLineVB.setObjectName("RefLine")
+        self.RefLineVB.setStyleSheet("background-color : blue")
+        self.RefLineVB.setVisible(False)
 
         ## Start button
         self.BtnStart = QPushButton(self.centralwidget)
@@ -279,6 +313,7 @@ class Ui_MainWindow(QMainWindow):
         self.LbHip = QLabel(self.centralwidget)
         self.LbHip.setGeometry(QtCore.QRect(1310, 280, 111, 21))
         self.LbHip.setObjectName("LbHip")
+        self.LbHip.setVisible(False)
 
         ## Hip text box
         self.TbHip = QLineEdit(self.centralwidget)
@@ -350,6 +385,9 @@ class Ui_MainWindow(QMainWindow):
         self.TbName.setText(_translate("MainWindow", "Test"))
         self.GbProcess.setTitle(_translate("MainWindow", "Process video"))
         self.CbProcess.setText(_translate("MainWindow", "Enable"))
+        self.LbAnkle.setText(_translate("MainWindow", "Ankle Angle"))
+        self.LbKnee.setText(_translate("MainWindow", "Knee Angle"))
+        self.LbHip.setText(_translate("MainWindow", "Hip Angle"))
 
     # Initial configuration of the UI elements
     def initialUi(self):
@@ -383,6 +421,10 @@ class Ui_MainWindow(QMainWindow):
         self.PictureBoxC.setVisible(False)
         self.PictureBoxD.setVisible(False)
         self.TbProcess.setVisible(False)
+        self.RefLineHA.setVisible(False)
+        self.RefLineVA.setVisible(False)
+        self.RefLineHB.setVisible(False)
+        self.RefLineVB.setVisible(False)
     
     # Configuration of the UI elements for the recording
     def recordUi(self):
@@ -405,6 +447,12 @@ class Ui_MainWindow(QMainWindow):
         self.TbProcess.setText("Waiting for a\nconnection")
         self.TbProcess.setStyleSheet("background-color : yellow")
         self.groupBox.setVisible(False)
+
+    def refUI(self):
+        self.RefLineHA.setVisible(True)
+        self.RefLineVA.setVisible(True)
+        self.RefLineHB.setVisible(True)
+        self.RefLineVB.setVisible(True)
 
     # Checks if a serial communication needs to be established 
     # This function is called when the user clicks the "Start" button
@@ -479,7 +527,8 @@ class Ui_MainWindow(QMainWindow):
             i += 1                                                                                                              # Increment the counter
             self.auxPath = self.testPath + '/'+ self.name + '-' + str(i)                                                        # Change the name of the test if the name already exists
         self.name = self.name + '-' + str(i)                                                                                    # Change the name of the test if the name already exists
-        os.mkdir(self.testPath + '/' + self.name)                                                                               # Create a new folder with the name of the test
+        self.testPath = self.testPath + '/' + self.name
+        os.mkdir(self.testPath)                                                                                                 # Create a new folder with the name of the test
 
         self.dataPath = ML.dataFileInitializer(self.testPath,self.name,self.fileData)                                           # Creates a new file to store the movement data of the test
         self.timePath = self.timeInitializeFile(self.testPath, self.name, self.fileTime)                                        # Creates a new file to store the time data of the test
@@ -517,6 +566,8 @@ class Ui_MainWindow(QMainWindow):
                     for t in threads:                                                                           # Waits for all threads to finish
                         t.join()                                                                                # When the camera is connected, the thread will finish and the program will continue
 
+                    flagRefPoint = False
+
                     while(not self.closeFlag):                                                                  # Generates a continuous loop to grab new frames from the cameras
                         for mxid, q in devices.items():                                                         # Checks the output queues of each device
                             if(mxid == '18443010E1D26D0E00'):                                                   # If the device id is 18443010E1D26D0E00, this is the camera A
@@ -541,12 +592,17 @@ class Ui_MainWindow(QMainWindow):
                             if(self.CbProcess.isChecked()):                                                     # If the process checkbox is checked, this means that the image processing is enabled in the live video 
                                 self.snapFlag = 1                                                               # Sets the snap flag to 1, this means that the image processing is enabled
 
+                        # if(not flagRefPoint):
+                        #     self.referencePoint()
+                        #     flagRefPoint = True
+                        
                         if(cv2.waitKey(1) == ord('q')):                                                         # This is used to manage the infinite loop generated to aquire the frames from the cameras, and the 'q' key is used to break but this is not commonly used
                             break
         elif(self.BtnStart.text() == 'Start'):                                                                  # If the button text is "Start"
             self.allOffUi()                                                                                     # Hides all the UI elements
             self.recordUi()                                                                                     # Shows the recording UI elements
             self.newTest()                                                                                      # Initializes the cameras and the video writer objects to record the video  
+            self.CaptureClick = False
             self.timerFlag = 1                                                                                  # Sets the timer flag to 1, this means that the recording is going to start
             self.initialtime = 0                                                                                # Sets the initial time to 0, this means that the recording is not started yet
             self.BtnStart.setText("Stop")                                                                       # Change the button text to "Stop"                         
@@ -558,6 +614,48 @@ class Ui_MainWindow(QMainWindow):
             self.initialUi()                                                                                    # Shows the initial UI elements
             self.BtnStart.setText("Preview")                                                                    # Change the button text to "Preview"
  
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.RightButton:
+            if(self.CaptureClick == True):
+                conv = 300/self.PictureBoxA.width()
+                PbAPos = self.PictureBoxA.mapFrom(self,event.pos())
+                x_A = PbAPos.x()
+                y_A = PbAPos.y()
+                # print(f"W: {self.PbA.width()}")
+                # print(f"H: {self.PbA.height()}")
+                if(x_A < int(self.PictureBoxA.width()) and x_A > 0 and y_A < int(self.PictureBoxA.height()) and y_A > 0):
+                    self.RefLineHA.setGeometry(QtCore.QRect(0, y_A-5, self.PictureBoxA.width(), 10))
+                    self.RefLineVA.setGeometry(QtCore.QRect(x_A-5, 0, 10, self.PictureBoxA.height()))
+                    self.Cam_origin[0] = [int(x_A*conv),int(y_A*conv)]
+                    
+
+                PbBPos = self.PictureBoxB.mapFrom(self,event.pos())
+                x_B = PbBPos.x()
+                y_B = PbBPos.y()
+                if(x_B < int(self.PictureBoxB.width()) and x_B > 0 and y_B < int(self.PictureBoxB.height()) and y_B > 0):
+                    self.RefLineHB.setGeometry(QtCore.QRect(0, y_B-5, self.PictureBoxB.width(), 10))
+                    self.RefLineVB.setGeometry(QtCore.QRect(x_B-5, 0, 10, self.PictureBoxB.height()))
+                    self.Cam_origin[1] = [int(x_B*conv),int(y_B*conv)]
+                
+                print(self.Cam_origin)
+            if(self.BtnStart.text() == 'Start' and self.CaptureClick == False):
+                self.referencePoint()
+
+    def referencePoint(self):
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Information)
+        msgBox.setText(f"Do you want to set a referrence point as the origin?")
+        msgBox.setWindowTitle("Reference point...")
+        msgBox.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        returnValue = msgBox.exec()
+        if(returnValue == QMessageBox.No):
+            self.Cam_origin = [[0,300],[0,300]]
+            return False
+        self.CaptureClick = True
+        self.refUI()
+        QMessageBox.information(self,"Reference point selection...",
+            f"Use the right click to select the reference point in each of the displays.")
+        
     # This is an alternative process to record the test, focused on the realization of the STS test
     # The sit to stand test (STS) consists of sitting down and standing up from a chair 5 times in a row, taking breaks of 10 seconds between each repetition
     def STSTest(self):
@@ -696,6 +794,7 @@ class Ui_MainWindow(QMainWindow):
     # Function to apply all the processing to the frames of both cameras
     def processFrame(self,frame,threshold):
         frameYOLO,keypoints,frame_height,Cam_origin = ML.skeletonDetection(frame,threshold,self.model)      # Uses the YOLO library to identify the keypoints, as a result is obtain an image with the skeleton drawn, the keypoint array, the height of the bounding box and the new origin
+        Cam_origin = self.Cam_origin
         self.frameYOLO = np.copy(frameYOLO)                                                                 # Copies the image with the skeleton drawn
         self.keypoints = keypoints                                                                          # Makes the keypoints arrays to a global variable
         self.keypoints3D = ML.Pose3D(keypoints,frame_height,Cam_origin)                                     # Calculates the tridimentional position of the keypoint usin de information of the two frames 
