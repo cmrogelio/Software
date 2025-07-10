@@ -523,15 +523,17 @@ class Ui_Form(QtWidgets.QMainWindow):
                 # print(f"W: {self.PbA.width()}")
                 # print(f"H: {self.PbA.height()}")
                 if(x_A < int(self.PbA.width()) and x_A > 0 and y_A < int(self.PbA.height()) and y_A > 0):
-                    self.Cam_origin[0] = [x_A*conv,y_A*conv]
+                    self.Cam_origin[0] = [int(x_A*conv),int(y_A*conv)]
                     print(self.Cam_origin)
 
                 PbBPos = self.PbB.mapFrom(self,event.pos())
                 x_B = PbBPos.x()
                 y_B = PbBPos.y()
                 if(x_B < int(self.PbA.width()) and x_B > 0 and y_B < int(self.PbA.height()) and y_B > 0):
-                    self.Cam_origin[1] = [x_B*conv,y_B*conv]
+                    self.Cam_origin[1] = [int(x_B*conv),int(y_B*conv)]
                     print(self.Cam_origin)
+                
+                self.drawRefPoint()
                 
                 if(self.Cam_origin[0]!=[] and self.Cam_origin[1]!=[]):
                     msgBox = QtWidgets.QMessageBox()
@@ -561,7 +563,23 @@ class Ui_Form(QtWidgets.QMainWindow):
             self.videoProcessingCon()
             return False
         self.CaptureClick = True
-
+        QtWidgets.QMessageBox.information(self,"Reference point selection...",
+            f"Use the right click to select the reference point in each of the displays.")
+        
+    def drawRefPoint(self):
+        AuxImg = np.copy(self.frame)
+        for i in range(len(self.Cam_origin)):
+            if(self.Cam_origin[i] != []):
+                print(self.Cam_origin[i])
+                cv2.line(AuxImg[i],[0,self.Cam_origin[i][1]],[300,self.Cam_origin[i][1]],(255,0,0),2)
+                cv2.line(AuxImg[i],[self.Cam_origin[i][0],0],[self.Cam_origin[i][0],300],(255,0,0),2)
+                cv2.drawMarker(AuxImg[i],self.Cam_origin[i],(0,0,255),cv2.MARKER_CROSS,20,2)
+                
+        
+        PixmapA = self.imageFormat(AuxImg[0])
+        self.PbA.setPixmap(PixmapA)
+        PixmapB = self.imageFormat(AuxImg[1])
+        self.PbB.setPixmap(PixmapB)
 
     def readAnalize(self):
         retA = True
@@ -818,12 +836,13 @@ class Ui_Form(QtWidgets.QMainWindow):
 
     def addData(self,dataPath):
         readedData = (ML.DataExtract(dataPath,1))[1:]
+        readedData = np.transpose(np.transpose(readedData)[17:])
         readedData = np.asarray(readedData, dtype = np.float64, order ='C')
 
         #####
         dataBase = []
         for row in readedData:
-            dataBase.append(row[17:])       #dataBase.append(row[17:])
+            dataBase.append(row)       #dataBase.append(row[17:])
         dataBase = np.array(dataBase)
         #####
 
