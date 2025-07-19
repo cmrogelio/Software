@@ -69,8 +69,15 @@ class Ui_MainWindow(QMainWindow):
         self.Cam_origin = [[0,300],[0,300]]                               # Array to store the origin of the bounding box for each of the cameras frames
         # YOLO parameters
         modelSize = 1                                           # (1-5) While using live video the value must always be 1
-        YOLO_models = {1:'yolov8n-pose.pt',2:'yolov8s-pose.pt',3:'yolov8m-pose.pt',4:'yolov8l-pose.pt',5:'yolov8x-pose.pt'} # YOLO models
-        self.model = YOLO(YOLO_models[modelSize])               # Load the YOLO model
+        YOLO_models = {1:'yolov8n-pose',2:'yolov8s-pose',3:'yolov8m-pose',4:'yolov8l-pose',5:'yolov8x-pose'} # YOLO models
+        #self.model = YOLO(YOLO_models[modelSize])               # Load the YOLO model
+        modelPath = str(YOLO_models[modelSize])+"_openvino_model/"
+        if(not os.path.exists(modelPath)):
+            model = YOLO(YOLO_models[modelSize] + ".pt")
+            model.export(format="openvino",half=True)           # Generates the optimized model
+        self.model = YOLO(modelPath)
+        self.processFPS = 10                                    # Change the frecuency of the process live video
+        self.processTime = int(1000/self.processFPS)
         self.timeFeatures = []                                  # Array to store the time features for the sit to stand (STS) model application
         self.timeFeaturesFall = []                              # Array to store the time features for the fall risk model application
 
@@ -307,7 +314,7 @@ class Ui_MainWindow(QMainWindow):
         # Timer process
         self.timerProcess = QTimer()
         self.timerProcess.timeout.connect(self.timerAnalize)
-        self.timerProcess.start(300)
+        self.timerProcess.start(self.processTime)
 
         ## Hip Angle label
         self.LbHip = QLabel(self.centralwidget)
