@@ -64,6 +64,12 @@ class ProcessingThread(QtCore.QThread):
             Cam_origin = self.parent.Cam_origin
             keypoints3D = ML.Pose3D(keypoints, frame_height, Cam_origin)
 
+            ## angle calculation
+            angHip = ML.angle(keypoints3D,[6,12])                                  # Calculate the angle of the hip joint
+            angKnee = ML.angle(keypoints3D,[12,14])                                # Calculate the angle of the knee joint
+            angAnkle = ML.angle(keypoints3D,[14,16])                               # Calculate the angle of the ankle joint
+            angles = [angHip,angKnee,angAnkle]
+
             # 如果需要 keypoint overlay，也在这里画（只画点更快）
             frameKey = [np.copy(frame[0]), np.copy(frame[1])]
             for f in range(2):
@@ -72,7 +78,7 @@ class ProcessingThread(QtCore.QThread):
                         cv2.circle(frameKey[f], (int(point[0]), int(point[1])), 3, (255, 0, 0), -1)
 
             # 把结果发回 UI 线程（UI 线程只接收 + 显示）
-            self.resultReady.emit(frameYOLO, frameKey, keypoints3D)
+            self.resultReady.emit(frameYOLO, frameKey, keypoints3D,angles)
 
             # 限频
             dt = time.perf_counter() - t0
@@ -857,35 +863,7 @@ class Ui_MainWindow(QMainWindow):
             self.PictureBoxC.setText("Stand")
             self.PictureBoxC.setStyleSheet("background-color : yellow")
 
-    # Function to analice the current frame from both cameras
-    # This is called every 0.33 seconds by a timer, and is limited by the system performance
-    def timerAnalize(self):
-        if(self.snapFlag):                                                              # If the snap flag is set to 1, this means that the image processing is enabled
-            self.processFrame(self.frame,0.5)                                           # Send the current frames to be processed, the second parameter is the threshold to detect the individuals in the image
-
-            angHip = ML.angle(self.keypoints3D,[6,12])                                  # Calculate the angle of the hip joint
-            angKnee = ML.angle(self.keypoints3D,[12,14])                                # Calculate the angle of the knee joint
-            angAnkle = ML.angle(self.keypoints3D,[14,16])                               # Calculate the angle of the ankle joint
-
-            self.TbHip.setText(str(angHip))                                             # Displays the angle of the hip in a text box
-            self.TbKnee.setText(str(angKnee))                                           # Displays the angle of the knee in a text box
-            self.TbAnkle.setText(str(angAnkle))                                         # Displays the angle of the ankle in a text box
-
-            if(self.commFlag):                                                          # Checks if the serial communication was stablished
-                # angKnee -> 0°-100°
-                if(angKnee>=0 and angKnee<100):
-                    angleString = str(angHip) + ',' + str(angKnee) + ',' + str(angAnkle)    # Generates a string with the information of all the angles divided by a comma
-                    self.conn.sendall(angleString.encode('utf-8'))                          # This is the sender line, you just change the message to be sent and encode it to utf-8
-
-            if(self.videoFlag == 1):                                                    # Check if the keypoints are going to be display
-                frame = np.copy(self.frame)                                             # Gets a copy of the actual frame
-                keypoints = np.copy(self.keypoints)                                     # Gets a copy of the keypoint information of each frame
-                for f in range(len(keypoints)):                                         # Checks each of the keypoints arrays, it should be always two one for each camera
-                    for point in keypoints[f]:                                          # Checks each of the points in the array
-                        if(np.max(point) > 0):                                          # Validates that the point was detected
-                            cv2.ellipse(frame[f], (int(point[0]),int(point[1])), (4,4),0,0,360,(255,0,0),4)     # Draws a circle in frame in the keypoint position
-                    self.frameKey[f] =np.copy(frame[f])                                                         # Copies the frame with the keypoints in to a new array
-    
+   
     # Function to apply all the processing to the frames of both cameras
     def processFrame(self,frame,threshold):
         frameYOLO,keypoints,frame_height,Cam_origin = ML.skeletonDetection(frame,threshold,self.model)      # Uses the YOLO library to identify the keypoints, as a result is obtain an image with the skeleton drawn, the keypoint array, the height of the bounding box and the new origin
@@ -1067,13 +1045,26 @@ class Ui_MainWindow(QMainWindow):
         keypointsRow = keypointsRow.reshape(1,36)                           # Reshape the keypoints row to a 1D array
 
         return keypointsRow                                                 # Return the scaled keypoints row
-    @QtCore.pyqtSlot(object, object, object)
-    def onResultReady(self, frameYOLO, frameKey, keypoints3D):
+    
+    @QtCore.pyqtSlot(object, object, object, object)
+    def onResultReady(self, frameYOLO, frameKey, keypoints3D, angles):
         self.latest_frameYOLO = frameYOLO
         self.latest_frameKey = frameKey
         self.latest_keypoints3D = keypoints3D
 
+        angHip,angKnee,angAnkle = angles
 
+         ## Set angle to text box
+        self.TbHip.setText(str(angHip))                                             # Displays the angle of the hip in a text box
+        self.TbKnee.setText(str(angKnee))                                           # Displays the angle of the knee in a text box
+        self.TbAnkle.setText(str(angAnkle))                                         # Displays the angle of the ankle in a text box
+
+        ## Send angle string to the serial terminal for C++ program
+        if(self.commFlag):                                                          # Checks if the serial communication was stablished
+            # angKnee -> 0°-100°
+            if(angKnee>=0 and angKnee<100):
+                angleString = str(angHip) + ',' + str(angKnee) + ',' + str(angAnkle)    # Generates a string with the information of all the angles divided by a comma
+                self.conn.sendall(angleString.encode('utf-8'))                          # This is the sender line, you just change the message to be sent and encode it to utf-8
 
 
 if __name__ == "__main__":
